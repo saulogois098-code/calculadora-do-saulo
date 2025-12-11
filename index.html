@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calculadora do Saulo</title>
+  <!--
+    Calculadora do Saulo — único arquivo (HTML/CSS/JS)
+    - Tema escuro, minimalista e responsivo
+    - Operações: + - × ÷
+    - Exibição atual e anterior
+    - Botões: DEL (apagar), C (limpar tudo), = (resultado)
+    - Animações leves ao clicar
+    - Link personalizado com o texto "calculadora do Saulo"
+
+    Comentários inline abaixo explicam a lógica e estrutura.
+  -->
+  <style>
+    /* ----------------------
+       Design: Dark Minimal
+       ---------------------- */
+    :root{
+      --bg:#0b0c0d;            /* page background */
+      --panel:#0f1112;         /* calculator shell */
+      --muted:#9aa1a6;         /* secondary text */
+      --accent:#7c9cff;        /* subtle accent for active */
+      --glass: rgba(255,255,255,0.03);
+      --btn-bg: rgba(255,255,255,0.02);
+      --btn-hover: rgba(255,255,255,0.04);
+      --danger: #ff6b6b;
+      --radius: 14px;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(124,156,255,0.03), transparent),
+                  linear-gradient(180deg, rgba(255,255,255,0.02), transparent 30%),
+                  var(--bg);
+      color:#e9eef3;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:32px;
+      box-sizing:border-box;
+    }
+
+    /* Container that centers the UI and keeps responsiveness */
+    .wrap{
+      width:100%;
+      max-width:420px;     /* good for mobile and desktop */
+      min-width:280px;
+    }
+
+    /* Header with title and small link (personalized) */
+    header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:18px;
+    }
+
+    .title{
+      font-size:18px;
+      font-weight:600;
+      letter-spacing:0.2px;
+    }
+
+    .personal-link{
+      font-size:12px;
+      color:var(--muted);
+      text-decoration:none;
+      padding:6px 10px;
+      border-radius:8px;
+      background:transparent;
+      transition: all 160ms ease;
+    }
+    .personal-link:hover{ color:var(--accent); transform:translateY(-2px); }
+
+    /* Calculator shell */
+    .calc{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:var(--radius);
+      padding:18px;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+      backdrop-filter: blur(6px);
+    }
+
+    /* Display area */
+    .display{
+      min-height:92px;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      justify-content:center;
+      padding:14px;
+      gap:6px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+      border-radius:10px;
+      margin-bottom:14px;
+    }
+
+    .prev{
+      font-size:13px;
+      color:var(--muted);
+      opacity:0.9;
+      pointer-events:none;
+    }
+    .current{
+      font-size:28px;
+      font-weight:600;
+      word-break:break-all;
+    }
+
+    /* Buttons grid */
+    .keys{
+      display:grid;
+      grid-template-columns: repeat(4,1fr);
+      gap:10px;
+    }
+
+    button{
+      appearance:none;
+      border:0;
+      background:var(--btn-bg);
+      color:inherit;
+      padding:16px;
+      font-size:18px;
+      border-radius:12px;
+      cursor:pointer;
+      transition: transform 120ms cubic-bezier(.2,.9,.3,1), box-shadow 120ms;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      user-select:none;
+    }
+
+    /* Slightly larger key for zero */
+    .key-zero{ grid-column: span 2; }
+
+    /* Operator style */
+    .operator{
+      background: linear-gradient(180deg, rgba(124,156,255,0.08), rgba(124,156,255,0.04));
+      color:var(--accent);
+      font-weight:600;
+    }
+
+    /* Accent for clear/delete special buttons */
+    .func{ color:var(--muted); }
+    .danger{ color:var(--danger); }
+
+    /* Press animation (light) */
+    button:active{ transform: translateY(2px) scale(0.995); box-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+
+    /* Focus outline for accessibility */
+    button:focus{ outline:2px solid rgba(124,156,255,0.12); outline-offset:2px; }
+
+    /* Responsive tweak: reduce padding on very small screens */
+    @media (max-width:360px){
+      .current{ font-size:24px; }
+      button{ padding:12px; font-size:16px; }
+    }
+
+    /* Footer with the personalized link */
+    footer{ margin-top:12px; text-align:center; font-size:12px; color:var(--muted); }
+
+    /* Tiny helper: subtle button ripple when clicked (using pseudo-element) */
+    .ripple{ position:relative; overflow:hidden; }
+    .ripple::after{
+      content:''; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(0);
+      width:120%; height:120%; border-radius:50%; background: rgba(255,255,255,0.02);
+      transition: transform 350ms cubic-bezier(.2,.8,.2,1), opacity 300ms;
+      pointer-events:none;
+      opacity:0;
+    }
+    .ripple.active::after{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+
+  </style>
+</head>
+<body>
+  <main class="wrap" role="main">
+    <header>
+      <div class="title">Calculadora do Saulo</div>
+      <!-- Link personalizado (texto conforme pedido). href pode ser ajustado pelo usuário. -->
+      <a class="personal-link" href="#" aria-label="Link personalizado: calculadora do Saulo">calculadora do Saulo</a>
+    </header>
+
+    <section class="calc" aria-label="Calculadora" role="application">
+      <!-- Display: mostra operação anterior e valor atual -->
+      <div class="display" aria-hidden="false">
+        <div id="prev" class="prev" aria-live="polite">&nbsp;</div>
+        <div id="current" class="current" aria-live="polite">0</div>
+      </div>
+
+      <!-- Teclado da calculadora -->
+      <div class="keys" role="group" aria-label="Teclado da calculadora">
+        <!-- Linha 1 -->
+        <button class="func ripple" data-action="clear" title="Limpar (C)" aria-label="Limpar tudo (C)">C</button>
+        <button class="func ripple" data-action="delete" title="Apagar (DEL)" aria-label="Apagar último (DEL)">DEL</button>
+        <button class="func ripple" data-action="percent" title="Percent (não implementado)" aria-hidden="true">%</button>
+        <button class="operator ripple" data-action="operator" data-value="/" aria-label="Dividir">÷</button>
+
+        <!-- Linha 2 -->
+        <button class="ripple" data-action="digit" data-value="7">7</button>
+        <button class="ripple" data-action="digit" data-value="8">8</button>
+        <button class="ripple" data-action="digit" data-value="9">9</button>
+        <button class="operator ripple" data-action="operator" data-value="*" aria-label="Multiplicar">×</button>
+
+        <!-- Linha 3 -->
+        <button class="ripple" data-action="digit" data-value="4">4</button>
+        <button class="ripple" data-action="digit" data-value="5">5</button>
+        <button class="ripple" data-action="digit" data-value="6">6</button>
+        <button class="operator ripple" data-action="operator" data-value="-" aria-label="Subtrair">−</button>
+
+        <!-- Linha 4 -->
+        <button class="ripple" data-action="digit" data-value="1">1</button>
+        <button class="ripple" data-action="digit" data-value="2">2</button>
+        <button class="ripple" data-action="digit" data-value="3">3</button>
+        <button class="operator ripple" data-action="operator" data-value="+" aria-label="Somar">+</button>
+
+        <!-- Linha 5 -->
+        <button class="ripple key-zero" data-action="digit" data-value="0">0</button>
+        <button class="ripple" data-action="digit" data-value=".">.</button>
+        <button class="operator ripple" data-action="equals" aria-label="Igual">=</button>
+      </div>
+    </section>
+
+    <footer>
+      <a class="personal-link" href="#" aria-label="calculadora do Saulo footer link">calculadora do Saulo</a>
+    </footer>
+  </main>
+
+  <script>
+    /* ---------------------------
+       Lógica da Calculadora
+       - Mantém displayAtual (string) e displayAnterior (string + operador)
+       - Operadores: + - * /
+       - Botões: digit, operator, delete, clear, equals
+       - Suporte básico de teclado
+       --------------------------- */
+
+    (function(){
+      const prevEl = document.getElementById('prev');
+      const currEl = document.getElementById('current');
+      const keys = document.querySelectorAll('[data-action]');
+
+      let current = '0';
+      let previous = '';
+      let operator = null; // '+', '-', '*', '/'
+      let justEvaluated = false; // quando o = foi pressionado para sobrescrever na próxima digitação
+
+      function updateDisplay(){
+        currEl.textContent = current;
+        prevEl.textContent = previous ? (previous + (operator ? ' ' + displaySymbol(operator) : '')) : '\u00A0';
+      }
+
+      function displaySymbol(op){
+        return op === '*' ? '×' : op === '/' ? '÷' : op;
+      }
+
+      // Adiciona dígito (0-9 ou '.')
+      function appendDigit(d){
+        if(justEvaluated){ current = '0'; justEvaluated = false; }
+        if(d === '.' && current.includes('.')) return; // evita pontos duplos
+        if(current === '0' && d !== '.') current = d;
+        else current = current + d;
+        updateDisplay();
+      }
+
+      // Define operador - se já existia operador e previous, avalia antes
+      function chooseOperator(op){
+        if(operator && previous){
+          // avaliar primeiro
+          evaluate();
+        }
+        operator = op;
+        previous = current;
+        current = '0';
+        updateDisplay();
+      }
+
+      // Avalia a expressão previous operator current
+      function evaluate(){
+        if(!operator || previous === '') return;
+        const a = parseFloat(previous);
+        const b = parseFloat(current);
+        let result = 0;
+        if(Number.isNaN(a) || Number.isNaN(b)) return;
+
+        switch(operator){
+          case '+': result = a + b; break;
+          case '-': result = a - b; break;
+          case '*': result = a * b; break;
+          case '/':
+            if(b === 0){
+              result = 'Erro';
+            } else {
+              result = a / b;
+            }
+            break;
+          default: return;
+        }
+
+        // Limitar casas decimais quando necessário
+        if(typeof result === 'number'){
+          // evita float impreciso: limita a 12 caracteres (incluindo ponto)
+          result = parseFloat(result.toPrecision(12)).toString();
+        }
+
+        current = String(result);
+        previous = '';
+        operator = null;
+        justEvaluated = true;
+        updateDisplay();
+      }
+
+      function clearAll(){ current = '0'; previous = ''; operator = null; justEvaluated = false; updateDisplay(); }
+      function deleteChar(){
+        if(justEvaluated){ current = '0'; justEvaluated = false; updateDisplay(); return; }
+        if(current.length <= 1){ current = '0'; }
+        else { current = current.slice(0,-1); }
+        updateDisplay();
+      }
+
+      // Handle button clicks
+      keys.forEach(k => {
+        k.addEventListener('click', (e) => {
+          const action = k.dataset.action;
+          const value  = k.dataset.value;
+
+          // ripple effect toggle (class added briefly)
+          k.classList.add('active');
+          setTimeout(()=> k.classList.remove('active'), 300);
+
+          if(action === 'digit') appendDigit(value);
+          else if(action === 'operator') chooseOperator(value);
+          else if(action === 'equals') evaluate();
+          else if(action === 'delete') deleteChar();
+          else if(action === 'clear') clearAll();
+        });
+      });
+
+      // Keyboard support: digits, operators, Enter, Backspace, Delete, Escape
+      window.addEventListener('keydown', (e)=>{
+        if(e.key >= '0' && e.key <= '9') { appendDigit(e.key); e.preventDefault(); }
+        else if(e.key === '.') { appendDigit('.'); e.preventDefault(); }
+        else if(['+','-','*','/'].includes(e.key)){ chooseOperator(e.key); e.preventDefault(); }
+        else if(e.key === 'Enter' || e.key === '='){ evaluate(); e.preventDefault(); }
+        else if(e.key === 'Backspace'){ deleteChar(); e.preventDefault(); }
+        else if(e.key === 'Delete' || e.key === 'Escape'){ clearAll(); e.preventDefault(); }
+      });
+
+      // Inicializa a visualização
+      updateDisplay();
+
+      // Acessibilidade: permitir foco via tecla Tab e navegação simples
+      // Já coberto por elementos <button> e outline no focus.
+
+    })();
+  </script>
+</body>
+</html>
